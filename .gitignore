@@ -1,0 +1,12 @@
+# Large artifacts — rebuilt from source via export/ + build/, or PrismML's to distribute.
+*.gguf
+*.safetensors
+*.tflite
+*.bin
+*.so
+*.apk
+*_libs/
+__pycache__/
+.DS_Store
+# Keep sample outputs (PNG) tracked.
+!samples/*.png

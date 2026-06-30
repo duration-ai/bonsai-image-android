@@ -1,0 +1,62 @@
+diff --git a/src/stable-diffusion.cpp b/src/stable-diffusion.cpp
+index 59d5b39..670d511 100644
+--- a/src/stable-diffusion.cpp
++++ b/src/stable-diffusion.cpp
+@@ -1,5 +1,7 @@
+ #include "ggml_extend.hpp"
+ #include "ggml_graph_cut.h"
++#include <fstream>
++#include <cstdlib>
+ 
+ #include "model.h"
+ #include "rng.hpp"
+@@ -1151,7 +1168,14 @@ public:
+         return latents;
+     }
+ 
+-    sd::Tensor<float> decode_first_stage(const sd::Tensor<float>& x, bool decode_video = false) {
++    sd::Tensor<float> decode_first_stage(const sd::Tensor<float>& x_arg, bool decode_video = false) {
++        sd::Tensor<float> x = x_arg;
++        if (const char* lp = getenv("SD_LOAD_LATENT")) {   // on-device: overwrite with the NPU DiT latent
++            long long n = 1; for (auto d : x.shape()) n *= d;
++            std::ifstream f(lp, std::ios::binary);
++            f.read((char*)x.data(), n * sizeof(float)); f.close();
++            fprintf(stderr, "[SD_LOAD_LATENT] loaded %s n=%lld\n", lp, n);
++        }
+         auto latents = first_stage_model->diffusion_to_vae_latents(x);
+         first_stage_model->set_temporal_tiling_enabled(vae_tiling_params.temporal_tiling);
+         return first_stage_model->decode(n_threads, latents, vae_tiling_params, decode_video, circular_x, circular_y);
+@@ -2209,6 +2233,7 @@ static std::optional<ImageGenerationEmbeds> prepare_image_generation_embeds(sd_c
+                                                                             GenerationRequest* request,
+                                                                             SamplePlan* plan,
+                                                                             ImageGenerationLatents* latents) {
++    if (getenv("SD_LOAD_LATENT")) { ImageGenerationEmbeds e; return e; }  // decode-only: skip text-encode (NPU did the DiT)
+     ConditionerParams condition_params;
+     condition_params.text       = request->prompt;
+     condition_params.clip_skip  = request->clip_skip;
+@@ -2225,6 +2250,14 @@ static std::optional<ImageGenerationEmbeds> prepare_image_generation_embeds(sd_c
+         cond.c_concat = latents->concat_latent;  // TODO: optimize
+     }
+ 
++    if (const char* dp = getenv("SD_DUMP_CTX")) {   // on-device: dump text context for the NPU DiT
++        long long n = 1; for (auto d : cond.c_crossattn.shape()) n *= d;
++        std::ofstream f(dp, std::ios::binary);
++        f.write((const char*)cond.c_crossattn.data(), n * sizeof(float)); f.close();
++        fprintf(stderr, "[SD_DUMP_CTX] wrote %s n=%lld\n", dp, n);
++        if (getenv("SD_ENCODE_ONLY")) { fprintf(stderr, "[SD_ENCODE_ONLY] exit\n"); exit(0); }
++    }
++
+     SDCondition uncond;
+     if (request->use_uncond) {
+         bool zero_out_masked = false;
+@@ -2351,7 +2384,9 @@ SD_API sd_image_t* generate_image(sd_ctx_t* sd_ctx, const sd_img_gen_params_t* s
+         sd_ctx->sd->sampler_rng->manual_seed(cur_seed);
+         sd::Tensor<float> noise = sd::randn_like<float>(latents.init_latent, sd_ctx->sd->rng);
+ 
+-        sd::Tensor<float> x_0 = sd_ctx->sd->sample(sd_ctx->sd->diffusion_model,
++        sd::Tensor<float> x_0;
++        if (getenv("SD_LOAD_LATENT")) { x_0 = latents.init_latent; }   // skip CPU DiT; NPU did it, decode overwrites
++        else x_0 = sd_ctx->sd->sample(sd_ctx->sd->diffusion_model,
+                                                    true,
+                                                    latents.init_latent,
+                                                    std::move(noise),

@@ -1,0 +1,38 @@
+bonsai-image-android
+Copyright 2026 Duration AI
+
+This product includes software licensed under the Apache License, Version 2.0
+(see LICENSE).
+
+------------------------------------------------------------------------------
+Attribution
+------------------------------------------------------------------------------
+
+This is an independent, from-scratch port of the Bonsai Image inference pipeline
+to the Qualcomm Hexagon NPU (QNN) for on-device (Android) use. It is not
+affiliated with or endorsed by PrismML, Black Forest Labs, Alibaba Cloud,
+Qualcomm, or Hugging Face.
+
+Created using Bonsai Image by PrismML
+  https://github.com/PrismML-Eng/Bonsai-Image-Demo  (Apache-2.0)
+
+Bonsai Image is built from FLUX.2 [klein] 4B, Copyright 2026 Black Forest Labs
+  https://huggingface.co/black-forest-labs/FLUX.2-klein-4B  (Apache-2.0)
+
+The text encoder is built from Qwen3-4B, Copyright 2024 Alibaba Cloud
+  https://huggingface.co/Qwen/Qwen3-4B  (Apache-2.0)
+
+The reference Python implementation this port was validated against is
+mflux / mflux-prism, Copyright Filip Strand / PrismML  (MIT)
+
+Dependencies:
+  stable-diffusion.cpp, Copyright leejet  (MIT)
+    The CPU text-encode and VAE-decode stages (sd-cli). The 1-bit Bonsai support
+    comes from Juste-Leo2's fork (https://github.com/Juste-Leo2/stable-diffusion.cpp);
+    our NPU-split hooks are added on top as a patch (see patches/).
+  Qualcomm AI Engine Direct (QNN / QAIRT) SDK
+    Used to run the diffusion transformer on the Hexagon NPU. Proprietary;
+    obtain from Qualcomm under its own license. Not distributed here.
+
+Model weights are NOT distributed with this repository. Download them from
+PrismML under their own license (see README).
